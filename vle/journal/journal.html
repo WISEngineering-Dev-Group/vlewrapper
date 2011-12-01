@@ -1,0 +1,51 @@
+<html>
+	<head>
+		<script type='text/javascript' src='/vlewrapper/vle/events/eventmanager.js'></script>
+		<script>
+			/**
+			 * called when the journal page is first loaded. this is only
+			 * called once for each vle session. when the student closes
+			 * the journal, the journal window just becomes hidden and is not
+			 * actually disposed.
+			 */			
+			window.onload = function() {
+				//loads the js library files that are used by our journal
+				//scriptloader.initialize(document, retrievePages, 'journal');
+				view.retrieveJournalPages(retrieveJournalPagesArgs);
+			}
+		</script>
+
+<style type="text/css">
+.wiseng_maxwidth {
+	width: 100%;
+}
+.wiseng_maxheight {
+	height: 100%;
+}
+</style>
+	</head>
+
+	<body>
+		<div id='journalPanel'>
+
+		   	<div id='buttonBoxJournal'>
+					<button onclick="eventManager.fire('resizeJournal', ['narrow'])">Tall</button>
+					<button onclick="eventManager.fire('resizeJournal', ['wide'])">Wide</button>
+					<button onclick="eventManager.fire('resizeJournal', ['original'])">Basic</button>
+					<button onclick="eventManager.fire('resizeJournal', ['maximize'])">Large</button>
+					<!--<button onclick="eventManager.fire('showJournal','-1')">Table of Contents</button> -->
+			</div>
+			<div id='buttonBoxJournal2'>
+			</div>
+			<div id='buttonBoxJournal3'>
+			</div>
+			
+			<div id='journalPages'>
+				<div id='journalPageTitle'></div>
+				<br>
+				<div id='journalPageNodeData'></div>
+				<div id='journalPageComment'></div>
+			</div>
+		</div>
+	</body>
+</html>

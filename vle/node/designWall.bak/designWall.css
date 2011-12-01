@@ -1,0 +1,122 @@
+body {
+	background-color: #eeeecc;
+	font-family: Arial, Helvetica, sans-serif;
+}
+#promptOuterDiv {
+	border: 2px solid #cccc99;
+	border-radius: 8px;
+	padding: 2px;
+	margin-bottom: 15px;
+	background-color: #cccc99;
+		
+}
+
+#promptDiv {
+	border: 2px solid #eeeecc;
+	border-radius: 6px;
+	padding: 8px;
+	font-size:16px;
+	background-color: #cccc99;
+}
+
+#topPostFormOuterDiv {
+	text-align: center;
+}
+
+#topPostFormDiv {
+	border: 2px solid #99cc66;
+	border-radius: 10px;
+	padding: 5px;
+	background-color: #99cc66;	
+	display: inline-block;
+	margin-bottom: 15px;
+	text-align: left;
+}
+
+#topPostFormTitleDiv h1 {
+	font-size: medium;
+	margin-top: 0;
+	color: white;
+}
+
+#topPostFormButtonBarDiv {
+	margin-top: 5px;
+}
+
+#topPostFormButtonBarDiv #imageButton {
+	float: left;
+}
+
+#imageButton:hover {
+	cursor: pointer;
+}
+
+#topPostFormButtonBarDiv #submitButton {
+	float: right;	
+}
+
+#submitButton:hover {
+	cursor: pointer;
+}
+
+.dw_posting_top {
+	border: 2px solid #99cc66;
+	border-radius: 10px;
+	padding: 5px;
+	background-color: #99cc66;
+}
+
+.dw_posting_top .dw_posting_body {
+	border: 2px solid white;
+	border-radius: 8px;
+	margin-top: 4px;
+	padding: 5px;
+	background-color: white;
+}
+
+.dw_posting_comment {
+	border: 2px solid gray;
+	margin-left: 1cm;
+	margin-top: 3px;
+	border-radius: 10px;
+	padding: 5px;
+	background-color: #eeeeff;
+}
+
+.dw_posting_comment .dw_comment_body {
+	font-size: small;
+}
+
+.dw_posting_comment .dw_posting_info {
+	font-size: smaller;
+	font-family: "Courier New", Courier, monospace;
+}
+
+.dw_posting_title {
+	font-weight: bold;
+}
+
+.dw_posting_top .dw_posting_info {
+	font-size: small;
+}
+
+.dw_posting_titlebar_comments {
+	font-size: small;
+}
+
+
+.displayNone {
+	display: none;
+}
+
+.displayBlock {
+	display: block;
+}
+
+.commentsLink {
+	color: blue;
+}
+
+.commentsLink:hover {
+	cursor: pointer;
+}

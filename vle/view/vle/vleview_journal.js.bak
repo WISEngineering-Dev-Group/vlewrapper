@@ -1,0 +1,809 @@
+View.prototype.currentPortfolioEntry = "";	// wiseng
+
+View.prototype.journalDispatcher = function(type,args,obj){
+	if(type=='showJournal'){
+		obj.showJournal(args);
+	} else if(type=='journalCreateNewEntry') {
+		obj.journalCreateNewEntry();
+	} else if(type=='journalShowAllPages') {
+		obj.journalShowAllPages();
+	} else if(type=='journalHideAllPages') {
+		obj.journalHideAllPages();
+	} else if(type=='journalShowPagesForCurrentNode') {
+		obj.journalShowPagesForCurrentNode();
+	} else if(type=='journalSavePage') {
+		obj.journalSavePage(args[0]);
+	} else if(type=='journalDeletePage') {
+		obj.journalDeletePage(args[0]);
+	} else if(type=='journalAssociateStep') {
+		//obj.journalAssociateStep(args[0], args[1]);
+		obj.movePortfolioEntry(args[0], args[1]);
+	} else if(type=='saveJournalToServer') {
+		obj.saveJournalToServer();
+	} else if(type=='resizeJournal'){
+		obj.utils.resizePanel('vleJournalPanel', args[0]);
+	} else if(type=='displayJournalPages') {
+		obj.displayJournalPages();
+	}
+};
+
+View.prototype.journalPanelGetElementById = function(id) {
+	return window.frames['journalFrame'].document.getElementById(id);
+};
+
+View.prototype.journalPanelGetElementsByClassName = function(className) {
+	return window.frames['journalFrame'].document.getElementsByClassName(className);
+};
+
+/**
+ * Displays the journal
+ */
+View.prototype.showJournal = function(args) {
+	//window.alert("showJournal() called");	// DEBUG
+	var initialCall = false;
+
+	/* create the journal dialog if not already created */
+	if($('#vleJournalPanel').size()==0){
+		initialCall = true;
+		//$('<div id="vleJournalPanel"></div>').dialog({autoOpen:false,width:600,height:600,close:this.saveJournalOnClose,title:'Journal'});
+		$('<div id="vleJournalPanel"></div>').dialog({autoOpen:false,width:600,height:600,close:this.saveJournalOnClose,title:'Design Portfolio'});
+		$('#vleJournalPanel').html("<iframe name='journalFrame' id='journalFrame' frameborder='0' width='100%' height='100%' src='journal/journal.html'></iframe>");
+		window.frames['journalFrame'].eventManager = eventManager;
+		window.frames['journalFrame'].view = this;
+
+		window.frames['journalFrame'].retrieveJournalPagesArgs = args;
+	}
+	
+	/* show the dialog */
+	$('#vleJournalPanel').dialog('open');
+
+	if (!initialCall) {
+		this.retrieveJournalPages(args);	// added by Eddie
+	}
+};
+
+
+/**
+ * Makes a request back to the server to retrieve all the journal
+ * pages for the workgroupId and then displays the journal pages
+ * in the journal panel
+ */
+View.prototype.retrieveJournalPages = function(args) {
+	var pageIndex;
+	if (args != null && args.length != 0) { pageIndex = args[0]; }
+	else {
+		pageIndex = -1;
+	}
+	//window.alert("retrieveJournalPages() called");	// DEBUG
+	//window.alert("page to display: " + pageIndex);
+
+	// query the database
+	var wiseng_userName = this.userAndClassInfo.getUserLoginName();
+	var wiseng_runId = this.config.getConfigParam('runId');
+	var url = "/wiseng/designPortfolio";
+	var requestData = "userName=" + escape(wiseng_userName)
+		+ "&projectId=" + escape(wiseng_runId)
+		+ "&index=" + pageIndex
+		+ "&mode=" + "get";
+
+	//window.alert(requestData);
+	var wiseng_request = WISEng_createRequest();
+	if (wiseng_request == null) {
+		window.alert("Unable to create request");
+	}
+	else {
+		wiseng_request.onreadystatechange = function() {
+			if (wiseng_request.readyState == 4
+				&& wiseng_request.status == 200) {
+
+				var responseText = wiseng_request.responseText;
+				//window.alert(responseText);
+				var jsonResponse = JSON.parse(responseText);
+
+				displayWISEngPortfolioPage(jsonResponse);
+			}
+		};
+		wiseng_request.open("POST", url, true);
+		wiseng_request.setRequestHeader("Content-Type",
+			"application/x-www-form-urlencoded");
+		wiseng_request.send(requestData);
+	}
+
+};
+
+function clearDesignPortfolioPageDisplay() {
+	var doc = window.frames['journalFrame'].document;
+	var journalPagesDiv = doc.getElementById("journalPages");
+	var titleDiv = doc.getElementById("journalPageTitle");
+	var nodeDataDiv = doc.getElementById("journalPageNodeData");
+	var commentDiv = doc.getElementById("journalPageComment");
+
+	titleDiv.innerHTML = "";
+	nodeDataDiv.innerHTML = "";
+	commentDiv.innerHTML = "";
+}
+
+function displayWISEngPortfolioPage(responseJSON) {
+//	$('#vleJournalPanel').html("<iframe name='journalFrame' id='journalFrame' frameborder='0' width='100%' height='100%' src='journal/journal.html'></iframe>");
+
+	var vle = this.WISEng_vle;
+	var doc = window.frames['journalFrame'].document;
+	var journalPagesDiv = doc.getElementById("journalPages");
+	var titleDiv = doc.getElementById("journalPageTitle");
+	var nodeDataDiv = doc.getElementById("journalPageNodeData");
+	var commentDiv = doc.getElementById("journalPageComment");
+
+	var responseType = responseJSON.type;
+	var responseMessage = responseJSON.text;
+
+	var pageTitle;
+	var pageData;
+	var pageComments;
+
+	var buttonBoxJournal2;
+	var buttonBoxJournal3;
+	var buttonBar2;
+	var buttonBar3;
+
+	var pageIndex;
+	var prevIndex;
+	var nextIndex;
+
+	if (responseType == "toc") {
+		clearDesignPortfolioPageDisplay();
+
+		nextIndex = 0;
+		var entries = responseJSON.entries;
+
+		// set the button bar
+		buttonBar2 = '<table border="0" width="100%">'
+			+ '<tr>'
+			+ '<td width="33%" align="left">'
+			+ '&nbsp;'
+			+ '</td>'
+			+ '<td align="center">'
+			//+ "<button onClick=\"eventManager.fire('showJournal','-1')\">Table of Contents</button>"
+			+ '&nbsp;'
+			+ '</td>'
+			+ '<td width="33%" align="right">';
+
+		if (entries.length > 0) {
+			buttonBar2 = buttonBar2 + "<button onClick=\"eventManager.fire('showJournal','" + nextIndex + "')\">Next</button>";
+		}
+		else {
+			buttonBar2 = buttonBar2 + "&nbsp;";
+		}
+
+		buttonBar2 = buttonBar2 + '</td>'
+			+ '</tr>'
+			+ '</table>';
+		buttonBoxJournal2 = doc.getElementById("buttonBoxJournal2");
+		buttonBoxJournal2.innerHTML = buttonBar2;
+		buttonBar3 = "";
+		buttonBoxJournal3 = doc.getElementById("buttonBoxJournal3");
+		buttonBoxJournal3.innerHTML = buttonBar3;
+		
+
+		pageTitle = "Table of Contents";
+		titleDiv.innerHTML = "<div style=\"font-weight:bold\">" + pageTitle + "</div>";
+		
+		// construct an ordered list of anchor elements for each entry
+		var pageData = "<table border=\"0\">";
+		for (var i = 0; i < entries.length; i++) {
+			var itemNumber = i+1;
+			var btn_up_id = "btn_up_" + i;
+			var btn_dn_id = "btn_dn_" + i;
+			pageData += "<tr>" 
+				// up
+				+ "<td>";
+
+			if (i > 0) {
+				pageData += "<button id=\"" + btn_up_id + "\" onClick=\"eventManager.fire('journalAssociateStep',['" + i + "','-1'])\" title=\"move up\">"
+				+ "&uarr;"
+				+ "</button>";
+			}
+
+			pageData += "</td>"
+
+				// down
+				+ "<td>";
+
+			if (i < entries.length - 1) {
+				pageData += "<button id=\"" + btn_dn_id + "\" onClick=\"eventManager.fire('journalAssociateStep',['" + i + "','1'])\" title=\"move down\">"
+				+ "&darr;"
+				+ "</button>";
+			}
+
+			pageData += "</td>"
+
+				// link
+				+ "<td>"
+				+ itemNumber + ". "
+				+ "<a href=\"#\" onClick='eventManager.fire(\"showJournal\",\"" + i + "\")'>"
+				+ unescape(entries[i])
+				+ "</a>"
+				+ "</td>"
+				
+				// padding
+				+ "<td>"
+				+ "&nbsp;&nbsp;&nbsp;&nbsp;"
+				+ "</td>"
+
+				// delete page button
+				+ "<td>"
+				+ "<button onClick=\"eventManager.fire('journalDeletePage',['" + i + "'])\" title=\"Remove from portfolio.\"><span style=\"font-weight:bold\">X</span></button>"
+				+"</td>"
+				
+				+ "</tr>";
+
+		}
+		pageData += "</table>";
+
+		// set the nodeDataDiv contents to be the ordered list
+		nodeDataDiv.innerHTML = pageData;
+	}
+	else if (responseType == "entry") {
+		clearDesignPortfolioPageDisplay();
+		
+		// save the response object for updates
+		vle.currentPortfolioEntry = responseJSON;
+
+		// set page title
+		pageTitle = responseJSON.title;
+		pageIndex = responseJSON.displayIndex;
+		prevIndex = pageIndex - 1;
+		nextIndex = pageIndex + 1;
+		
+		pageTitle = unescape(pageTitle);
+
+		// set the button bar
+		buttonBar2 = '<table border="0" width="100%">'
+			+ '<tr>'
+			+ '<td width="33%" align="left">'
+			+ "<button onClick=\"eventManager.fire('showJournal','" + prevIndex + "')\">Previous</button>"
+			+ '</td>'
+			+ '<td align="center">'
+			+ "<button onClick=\"eventManager.fire('showJournal','-1')\">Table of Contents</button>"
+			+ '</td>'
+			+ '<td width="33%" align="right">'
+			+ "<button onClick=\"eventManager.fire('showJournal','" + nextIndex + "')\">Next</button>"
+			+ '</td>'
+			+ '</tr>'
+			+ '</table>';
+		buttonBoxJournal2 = doc.getElementById("buttonBoxJournal2");
+		buttonBoxJournal2.innerHTML = buttonBar2;
+		buttonBar3 = '<table border="0" width="100%">'
+			+ '<tr>'
+			+ '<td width="33%" align="left">'
+			+ '&nbsp;'
+			+ '</td>'
+			+ '<td align="center">'
+			+ "<button onClick=\"eventManager.fire('journalCreateNewEntry')\">Edit</button>"
+			+ '</td>'
+			+ '<td width="33%" align="right">'
+			+ '&nbsp;'
+			+ '</td>'
+			+ '</tr>'
+			+ '</table>';
+		buttonBoxJournal3 = doc.getElementById("buttonBoxJournal3");
+		buttonBoxJournal3.innerHTML = buttonBar3;
+		
+		// WORKING HERE
+		titleDiv.innerHTML = 
+			"<div style=\"font-weight:bold;text-align:center\">" + pageTitle + "</div>\n";
+
+		/* set page data */
+		// get node data
+		var wiseng_nodeId = responseJSON.nodeId;
+		var wiseng_latestState = vle.getLatestStateForNode(wiseng_nodeId);
+		var wiseng_node = vle.project.getNodeById(wiseng_nodeId);
+		var wiseng_nodeData = wiseng_node.translateStudentWork(wiseng_latestState.getStudentWork());
+		
+		// put node data in the page
+		pageData = "<table border=\"1\" width=\"100%\">"
+			+ "<tr><td>" + wiseng_nodeData + "</td></tr>"
+			+ "</table>";
+		nodeDataDiv.innerHTML = pageData;
+
+		// set comment(s)
+		pageComment = responseJSON.comment;
+
+		pageComment = unescape(pageComment);
+
+		commentDiv.innerHTML = 
+			"<pre>\n" 
+			+ pageComment + "\n"
+			+ '</pre>' + "\n";
+		
+	}
+	else {	// errors and messages
+		var errorText = responseJSON.text;
+		var pos = errorText.indexOf("ArrayIndexOutOfBoundsException");
+		if (pos > 0) {
+			eventManager.fire("showJournal", -1);
+		}
+		else {
+			//clearDesignPortfolioPageDisplay();
+			window.alert(responseJSON.text);
+		}
+	}
+};
+
+/**
+ * Displays the journal pages in the journal panel
+ */
+View.prototype.displayJournalPages = function() {
+	//window.alert("displayJournalPages() called");	// DEBUG
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Get a journal page id for the new journal page.
+ * @return a unique journal page id as an integer
+ */
+View.prototype.getNewJournalPageId = function() {
+	//window.alert("getNewJournalPageId() called");	// DEBUG
+
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Get the largest existing journal page id
+ */
+View.prototype.getMaxJournalPageId = function() {
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * WISENG HIJACK: This method is used by WISENG to
+ * put the portfolio page into EDIT mode.
+ * 
+ * Under WISE4 this method did:
+ * Creates and displays a new journal page for when the student
+ * clicks on the "Create New Page" button
+ * @return
+ */
+View.prototype.journalCreateNewEntry = function() {
+	//window.alert("journalCreateNewEntry() called");
+	
+	var vle = this;
+	var doc = window.frames['journalFrame'].document;
+	var entry = vle.currentPortfolioEntry;
+	var titleDiv = doc.getElementById("journalPageTitle");
+	var nodeDataDiv = doc.getElementById("journalPageNodeData");
+	var commentDiv = doc.getElementById("journalPageComment");
+
+
+	// set page title
+	pageTitle = entry.title;
+	var pageIndex = entry.displayIndex;
+		
+	pageTitle = unescape(pageTitle);
+
+	//	clearDesignPortfolioPageDisplay();
+		
+	// set the button bar
+	buttonBar2 = "&nbsp;";
+	buttonBoxJournal2 = doc.getElementById("buttonBoxJournal2");
+	buttonBoxJournal2.innerHTML = buttonBar2;
+	buttonBar3 = '<table border="0" width="100%">'
+		+ '<tr>'
+		+ '<td width="33%" align="left">'
+		+ '&nbsp;'
+		+ '</td>'
+		+ '<td align="center">'
+		+ "<button onClick=\"eventManager.fire('journalSavePage', ['" + pageIndex + "'])\">Save</button>"
+		+ "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+		+ "<button onClick=\"eventManager.fire('showJournal', '" + pageIndex + "')\">Cancel</button>"
+		+ '</td>'
+		+ '<td width="33%" align="right">'
+		+ '&nbsp;'
+		+ '</td>'
+		+ '</tr>'
+		+ '</table>';
+	buttonBoxJournal3 = doc.getElementById("buttonBoxJournal3");
+	buttonBoxJournal3.innerHTML = buttonBar3;
+
+	// WORKING HERE
+	titleDiv.innerHTML = 
+		'<input id="inputPageTitle" class="wiseng_maxwidth" type="text" size="40">' 
+		+ "\n";
+	var textInputField = doc.getElementById("inputPageTitle");
+	textInputField.value = pageTitle;
+
+	/* set page data */
+	// get node data
+	var wiseng_nodeId = entry.nodeId;
+	var wiseng_latestState = vle.getLatestStateForNode(wiseng_nodeId);
+	var wiseng_node = vle.project.getNodeById(wiseng_nodeId);
+	var wiseng_nodeData = wiseng_node.translateStudentWork(wiseng_latestState.getStudentWork());
+		
+	// put node data in the page
+	pageData = "<table border=\"1\" width=\"100%\">"
+		+ "<tr><td>" + wiseng_nodeData + "</td></tr>"
+		+ "</table>";
+	nodeDataDiv.innerHTML = pageData;
+
+	// set comment(s)
+	pageComment = entry.comment;
+
+	pageComment = unescape(pageComment);
+
+	commentDiv.innerHTML = 
+		'<br><textarea id="inputComment" class="wiseng_maxwidth wiseng_maxheight">'
+		+ pageComment
+		+ '</textarea>' + "\n";
+		
+};
+
+/**
+ * Removes the journal page from the journal UI and also makes
+ * @param id the id of the journal page 
+ * 
+ */
+View.prototype.journalDeletePage = function(displayIndex) {
+	// query the database
+	var wiseng_userName = this.userAndClassInfo.getUserLoginName();
+	var wiseng_runId = this.config.getConfigParam('runId');
+	var url = "/wiseng/designPortfolio";
+	var requestData = "mode=delete"
+		+ "&userName=" + escape(wiseng_userName)
+		+ "&projectId=" + escape(wiseng_runId)
+		+ "&index=" + displayIndex;
+
+	var wiseng_request = WISEng_createRequest();
+	if (wiseng_request == null) {
+		window.alert("Unable to create request");
+	}
+	else {
+		wiseng_request.onreadystatechange = function() {
+			if (wiseng_request.readyState == 4
+				&& wiseng_request.status == 200) {
+
+				var responseText = wiseng_request.responseText;
+				//window.alert(responseText);
+				var jsonResponse = JSON.parse(responseText);
+
+				displayWISEngPortfolioPage(jsonResponse);
+			}
+		};
+		wiseng_request.open("POST", url, true);
+		wiseng_request.setRequestHeader("Content-Type",
+			"application/x-www-form-urlencoded");
+		wiseng_request.send(requestData);
+	}
+
+};
+
+/**
+ * This gathers all the data so that the journal page data can be
+ * sent back to the server for saving. This only performs saving
+ * locally on the client machine. Only when the journal is closed
+ * or the user clicks the "Save Journal" button will all
+ * of these local changes will be pushed to the server to
+ * be saved.
+ * @param id the id of the journal page
+ */
+View.prototype.journalSavePage = function(id) {
+	//window.alert("journalSavePage() called");	// DEBUG
+	var vle = this;
+	var doc = window.frames['journalFrame'].document;
+	var entry = vle.currentPortfolioEntry;
+
+	// the triad ID of a portfolio entry:
+	
+	var projectId = entry.projectId;
+	var userName = entry.userName;
+	var nodeId = entry.nodeId;
+	
+	var displayIndex = entry.displayIndex;
+	var title = entry.title;
+	var comment = entry.comment;
+
+	// get title and comment from the ui
+	var inputTitle = doc.getElementById("inputPageTitle").value;
+	var inputComment = doc.getElementById("inputComment").value;
+	
+	if ((inputTitle != title) || (inputComment != comment)) {
+		title = inputTitle;
+		comment = inputComment;
+
+		// update the database
+		this.updateWISEngPortfolioEntry(id, projectId, userName, nodeId, displayIndex, title, comment);
+	}
+
+};
+
+
+View.prototype.updateWISEngPortfolioEntry = function(id, projectId, userName, nodeId, displayIndex, title, comment) {
+
+	//window.alert("projectId=" + projectId + "&userName=" + userName
+	//	+ "&nodeId=" + nodeId + "&title=" + title + "&comment=" + comment);
+
+        // query the database
+        var url = "/wiseng/designPortfolio";
+        var requestData = "mode=update"
+                + "&projectId=" + escape(projectId)
+		+ "&userName=" + escape(userName)
+                + "&nodeId=" + escape(nodeId)
+		+ "&displayIndex=" + displayIndex
+		+ "&title=" + escape(escape(title))
+		+ "&comment=" + escape(escape(comment));
+
+        //window.alert(requestData);
+        var wiseng_request = WISEng_createRequest();
+        if (wiseng_request == null) {
+                window.alert("Unable to create request");
+        }
+        else {
+                wiseng_request.onreadystatechange = function() {
+                        if (wiseng_request.readyState == 4
+                                && wiseng_request.status == 200) {
+
+                                var responseText = wiseng_request.responseText;
+                                //window.alert(responseText);
+                                var jsonResponse = JSON.parse(responseText);
+				if (id >= 0) {
+                                	displayWISEngPortfolioPage(jsonResponse);
+				}
+                        }
+                };
+                wiseng_request.open("POST", url, true);
+                wiseng_request.setRequestHeader("Content-Type",
+                        "application/x-www-form-urlencoded");
+                wiseng_request.send(requestData);
+        }
+}
+
+/**
+ * Loops through all the journal page ids and calls journalSavePage()
+ * on each of them to make sure all changes are pushed to the server.
+ * This is required because if the student is typing in a field and
+ * they close the window, the onblur effect will not fire which is
+ * usually what calls journalSavePage(). This is a special case
+ * so we need to call journalSavePage() for all ids to make sure
+ * we obtain the changes the student was just working on. 
+ */
+View.prototype.journalSaveAllPages = function() {
+	//window.alert("journalSaveAllPages() called");	// DEBUG
+
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Creates the UI for the journal page.
+ */
+View.prototype.addJournalPageToDisplay = function(journalPage, newPage) {
+	//window.alert("addJournalPageToDisplay() called");	// DEBUG
+
+	// METHOD DISABLED FOR WISENG
+};
+
+
+/**
+ * Moves a portfolio entry up or down in the display order.
+ * displayIndex : int : the index of the entry in the display order
+ * offset : int : number of places to move ( offset < 0 = up; offset > 0 = down )
+ */
+View.prototype.movePortfolioEntry = function(displayIndex, offset) {
+	// query the database
+	var wiseng_userName = this.userAndClassInfo.getUserLoginName();
+	var wiseng_runId = this.config.getConfigParam('runId');
+	var url = "/wiseng/designPortfolio";
+	var requestData = "mode=move"
+		+ "&offset=" + offset
+		+ "&userName=" + escape(wiseng_userName)
+		+ "&projectId=" + escape(wiseng_runId)
+		+ "&index=" + displayIndex;
+
+	var wiseng_request = WISEng_createRequest();
+	if (wiseng_request == null) {
+		window.alert("Unable to create request");
+	}
+	else {
+		wiseng_request.onreadystatechange = function() {
+			if (wiseng_request.readyState == 4
+				&& wiseng_request.status == 200) {
+
+				var responseText = wiseng_request.responseText;
+				//window.alert(responseText);
+				var jsonResponse = JSON.parse(responseText);
+
+				displayWISEngPortfolioPage(jsonResponse);
+			}
+		};
+		wiseng_request.open("POST", url, true);
+		wiseng_request.setRequestHeader("Content-Type",
+			"application/x-www-form-urlencoded");
+		wiseng_request.send(requestData);
+	}
+
+}
+
+/**
+ * Associate the specified entry id with the current step
+ * @param id the id integer for the journal page
+ * @param associate a boolean value whether to associate to
+ * current step or to unnassociate 
+ */
+View.prototype.journalAssociateStep = function(id, associate) {
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Hides all the journal pages from the display. This is used
+ * when the user creates a new page because we want to hide
+ * all the pages except for the new page to make it easier
+ * for them to see the new page and start writing in it.
+ */
+View.prototype.journalHideAllPages = function() {
+	//window.alert("journalHideAllPages() called");	// DEBUG
+
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Makes all the journal pages viewable in the display.
+ */
+View.prototype.journalShowAllPages = function() {
+	//window.alert("journalShowAllPages() called");	// DEBUG
+	
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Display only the journal pages associated with
+ * the current node the student is on in the vle.
+ */
+View.prototype.journalShowPagesForCurrentNode = function() {
+	//window.alert("journalShowPagesForCurrentNode() called");	// DEBUG
+
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Display only the journal pages associated with the
+ * argument nodeId.
+ * @param nodeId the id of the node to display journal
+ * 		pages for
+ */
+View.prototype.showAllJournalPagesWithNodeId = function(nodeId) {
+	//window.alert("journalShowAllPagesForCurrentNode() called");	// DEBUG
+
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Gets the dom id of the journal page div
+ * @param id the integer id of the journal page
+ */
+View.prototype.getJournalPageDivId = function(id) {
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Gets the dom id of the journal page text area
+ * @param id the integer id of the journal page
+ */
+View.prototype.getJournalPageTextId = function(id) {
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Get the dom id of the journal page title input text element
+ * @param id the integer id of the journal page
+ */
+View.prototype.getJournalPageTitleId = function(id) {
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Gets the dom id of the journal page modified timestamp td
+ * @param id the integer id of the journal page
+ */
+View.prototype.getJournalModifiedTimestampId = function(id) {
+	// METHOD DISABLED FOR WISENG
+};
+
+
+/**
+ * Gets the dom id of the journal page created timestamp td
+ * @param id the integer id of the journal page
+ */
+View.prototype.getJournalCreatedTimestampId = function(id) {
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * This gets called automatically when the journal panel is closed
+ * @param type
+ * @param fireArgs
+ * @param subscribeArgs
+ */
+View.prototype.saveJournalOnClose = function(type, fireArgs, subscribeArgs) {
+	//eventManager.fire("journalSavePage",-1);
+	//eventManager.fire("saveJournalToServer");
+};
+
+/**
+ * Save the journal changes back to the server
+ */
+View.prototype.saveJournalToServer = function() {
+	window.alert("saveJournalToServer() called");	// DEBUG
+
+	// NOT SURE IF THIS METHOD IS DOING ANYTHING
+	clearDesignPortfolioPageDisplay();
+
+};
+
+/**
+ * Get the value of the title for the journal page with the given id
+ * @param id the id of the journal page
+ * @return the title the student wrote for the journal page
+ */
+View.prototype.getJournalPageTitleValueById = function(id) {
+	// METHOD DISABLED FOR WISENG
+};
+
+/**
+ * Get the value of the data for the journal page with the given id
+ * @param id the id of the journal page
+ * @return the data the student wrote for the journal page
+ */
+View.prototype.getJournalPageDataValueById = function(id) {
+	// METHOD DISABLED FOR WISENG
+};
+
+View.prototype.getJournalPageNodeIdValueById = function(id) {
+	//window.alert("getJournalPageNodeIdValueById() called");	// DEBUG
+
+	// METHOD DISABLED FOR WISENG
+};
+
+
+/**
+ * Gets the dom id of the journal page check box
+ * @param id the integer id of the journal page
+ */
+function getJournalAssociateId(id) {
+	// METHOD DISABLED FOR WISENG
+}
+
+/**
+ * Gets the dom id of the journal page save button
+ * @param id the integer id of the journal page
+ */
+function getJournalSaveButtonId(id) {
+	// METHOD DISABLED FOR WISENG
+}
+
+
+/**
+ * Gets the dom id of the journal page nodeId section td
+ * @param id the integer id of the journal page
+ */
+function getJournalNodeId(id) {
+	// METHOD DISABLED FOR WISENG
+}
+
+/**
+ * Gets the dom id of the journal page message td
+ * @param id the integer id of the journal page
+ */
+function getJournalMessageId(id) {
+	// METHOD DISABLED FOR WISENG
+}
+
+/**
+ * Gets the dom id of the journal page new page message td
+ * @param id the integer id of the journal page
+ */
+function getJournalNewPageId(id) {
+	// METHOD DISABLED FOR WISENG
+}
+
+
+/* used to notify scriptloader that this script has finished loading */
+if(typeof eventManager != 'undefined'){
+	eventManager.fire('scriptLoaded', 'vle/view/vle/vleview_journal.js');
+};
