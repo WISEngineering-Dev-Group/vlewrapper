@@ -189,6 +189,9 @@ DesignWallNode.prototype.submitPosting = function(parentId) {
 
 	// get projectId (runId)
 	var projectId = this.getProjectId();
+	
+	// get nodeId
+	var nodeId = this.getNodeId();
 
 	// get userName
 	var userName = this.getUserName();
@@ -248,6 +251,7 @@ DesignWallNode.prototype.submitPosting = function(parentId) {
 
 	var requestData = "mode=post"
 		+ "&projectId=" + escape(projectId)
+		+ "&nodeId=" + escape(nodeId)
 		+ "&userName=" + escape(userName)
 		+ "&parentId=" + escape(parentId)
 		+ "&title=" + escape(title)
@@ -317,9 +321,13 @@ DesignWallNode.prototype.refreshPostingsDisplay = function() {
 
 	// get projectId (runId)
 	var projectId = this.getProjectId();
+	
+	// get nodeId
+	var nodeId = this.getNodeId();
 
 	var requestData = "mode=get"
-		+ "&projectId=" + escape(projectId);
+		+ "&projectId=" + escape(projectId)
+		+ "&nodeId=" + escape(nodeId);
 
 	var callback = function() {
 		if (designWallRequest.readyState == 4 &&
@@ -730,6 +738,9 @@ DesignWallNode.prototype.deletePosting = function(postingId) {
 	
 	// get projectId (runId)
 	var projectId = this.getProjectId();
+	
+	// get nodeId
+	var nodeId = this.getNodeId();
 
 	// get userName
 	var userName = this.getUserName();
@@ -737,6 +748,7 @@ DesignWallNode.prototype.deletePosting = function(postingId) {
 	// prepare data
 	var requestData = "mode=delete"
 		+ "&projectId=" + escape(projectId)
+		+ "&nodeId=" + escape(nodeId)
 		+ "&userName=" + escape(userName)
 		+ "&id=" + escape(postingId);
 	
@@ -798,6 +810,7 @@ DesignWallNode.prototype.updatePosting = function(postingId) {
 	
 	// get projectId & userName
 	var projectId = this.getProjectId();
+	var nodeId = this.getNodeId();
 	var userName = this.getUserName();
 
 	// get title
@@ -816,6 +829,7 @@ DesignWallNode.prototype.updatePosting = function(postingId) {
 	var requestData = "mode=edit"
 		+ "&id=" + escape(postingId)
 		+ "&projectId=" + escape(projectId)
+		+ "&nodeId=" + escape(nodeId)
 		+ "&userName=" + escape(userName)
 		+ "&title=" + escape(title)
 		+ "&body=" + escape(body);
